@@ -1,0 +1,12 @@
+/ {
+    zephyr,user {
+        io-channels = <&adc 0>, <&adc 1>, <&adc 2>;
+    };
+};
+
+
+&adc {
+    status = "okay";
+    #address-cells = <1>;
+    #size-cells = <0>;
+};
