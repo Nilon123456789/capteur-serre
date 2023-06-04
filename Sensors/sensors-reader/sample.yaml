@@ -1,0 +1,8 @@
+sample:
+  description: This is a project to test the reading of multiple sensors
+  name: Sensors Reader
+common:
+    tags: sensors
+    harness: console
+    harness_config:
+      type: one_line

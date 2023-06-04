@@ -1,0 +1,19 @@
+/* Mapping adc pins */
+/ {
+    zephyr,user {
+        /*  Pins :     P0.02     P0.03     P0.04 */
+        io-channels = <&adc 0>, <&adc 1>, <&adc 2>;
+    };
+};
+
+/* Enable adc driver */
+&adc {
+    status = "okay";
+    #address-cells = <1>;
+    #size-cells = <0>;
+};
+
+/* Enable i2c driver */
+&i2c1 {
+    status = "okay";
+};
