@@ -1,32 +1,32 @@
 /**
- * pt19.c
+ * humidity.c
  * 
- * Driver for the PT19 light sensor
+ * Driver for capacitive humidity sensor
  * 
  * Author: Nils Lahaye 2023
  * 
 */
 
-#include "pt19.h"
+#include "humidity.h"
 
-LOG_MODULE_REGISTER(PT19, CONFIG_PT19_LOG_LEVEL); /* Register the module for log */
+LOG_MODULE_REGISTER(HUMIDITY, CONFIG_HUMIDITY_LOG_LEVEL); /* Register the module for log */
 
-static const struct device *pt19_adc = DEVICE_DT_GET(ADC_NODE); /* Get the ADC device */
+static const struct device *humidity_adc = DEVICE_DT_GET(ADC_NODE); /* Get the ADC device */
 
 static int16_t sample_buffer[BUFFER_SIZE] = {0}; /* Buffer for the samples */
 
 static struct adc_channel_cfg channel_cfg = { /* Configuration of the ADC channel */
-    .gain             = PT_ADC_GAIN,
+    .gain             = HUM_ADC_GAIN,
 	.reference        = ADC_REFERENCE,
 	.acquisition_time = ADC_ACQUISITION_TIME,
-	.channel_id       = PT_CHANNEL_ID,
+	.channel_id       = HUM_CHANNEL_ID,
 	.differential	  = 0,
-	.input_positive   = PT_ADC_PORT,
+	.input_positive   = HUM_ADC_PORT,
 };
 
 static const struct adc_sequence sequence = {
     .options	    = NULL,
-    .channels	    = BIT(PT_CHANNEL_ID),
+    .channels	    = BIT(HUM_CHANNEL_ID),
     .buffer		    = sample_buffer,
     .buffer_size	= sizeof(sample_buffer),
     .resolution	    = ADC_RESOLUTION,
@@ -39,22 +39,22 @@ static uint8_t ret;
 static bool isInisialized = false;
 
 /**
- * @brief Initalise the PT19 sensor
+ * @brief Initalise the capacitive humidity sensor
  * 
  * @return int 0 if success, 1 if device not found, 
  * 2 if setup failed
 */
-int pt19_init(void)
+int humidity_init(void)
 {
 
     LOG_INF("init");
 
-    if(!pt19_adc) {
+    if(!humidity_adc) {
         LOG_ERR("device not found");
         return 1;
     }
 
-    ret = adc_channel_setup(pt19_adc, &channel_cfg);
+    ret = adc_channel_setup(humidity_adc, &channel_cfg);
     if(ret) {
         LOG_ERR("setup failed (%d)", ret);
         return 2;
@@ -68,31 +68,30 @@ int pt19_init(void)
 }
 
 /**
- * @brief Read the intensity of the light (0-100)
+ * @brief Read the humidity value (0-100)
  * 
- * @param intensity Pointer to the variable where the intensity will be stored
+ * @param humidity Pointer to the humidity value
  * @return int 0 if success, 1 if device not initialized, 
  * 2 if read failed
 */
-int pt19_read(float *intensity)
+int humidity_read(float *humidity)
 {
     if(!isInisialized) {
         LOG_ERR("device not initialized");
         return 1;
     }
 
-    ret = adc_read(pt19_adc, &sequence);
+    ret = adc_read(humidity_adc, &sequence);
     if(ret) {
         LOG_WRN("read failed (%d)", ret);
         return 2;
     }
 
-    *intensity = mapRange(sample_buffer[0], 0, 1023, 0, 100);
+    *humidity = mapRange(sample_buffer[0], DRY_VAL, WET_VAL, 0, 100);
 
-    LOG_DBG("Intensity raw: %d \t Intensity: %d.%d%%", sample_buffer[0], (int)*intensity, (int)(*intensity * 100) % 100);
+    LOG_DBG("Humidity raw: %d \t Humidity: %d.%d%%", sample_buffer[0], (int)*humidity, (int)(*humidity * 100) % 100);
 
     LOG_INF("read done");
 
     return 0;
 }
-

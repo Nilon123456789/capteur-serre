@@ -16,17 +16,17 @@ static const struct device *ntc_adc = DEVICE_DT_GET(ADC_NODE); /* Get the ADC de
 static int16_t sample_buffer[BUFFER_SIZE] = {0}; /* Buffer for the samples */
 
 static struct adc_channel_cfg channel_cfg = { /* Configuration of the ADC channel */
-    .gain             = ADC_GAIN,
+    .gain             = NTC_ADC_GAIN,
 	.reference        = ADC_REFERENCE,
 	.acquisition_time = ADC_ACQUISITION_TIME,
-	.channel_id       = CHANNEL_ID,
+	.channel_id       = NTC_CHANNEL_ID,
 	.differential	  = 0,
-	.input_positive   = ADC_PORT,
+	.input_positive   = NTC_ADC_PORT,
 };
 
 static const struct adc_sequence sequence = {
     .options	    = NULL,
-    .channels	    = BIT(CHANNEL_ID),
+    .channels	    = BIT(NTC_CHANNEL_ID),
     .buffer		    = sample_buffer,
     .buffer_size	= sizeof(sample_buffer),
     .resolution	    = ADC_RESOLUTION,

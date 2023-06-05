@@ -12,6 +12,7 @@
 #include "drivers/aht20.h"
 #include "drivers/pt19.h"
 #include "drivers/ntcThermistor.h"
+#include "drivers/humidity.h"
 
 LOG_MODULE_REGISTER(MAIN, CONFIG_MAIN_LOG_LEVEL);
 
@@ -39,6 +40,12 @@ void main(void)
 		return;
 	}
 
+	ret = humidity_init();
+	if(ret) {
+		LOG_ERR("Humidity init failed (%d)", ret);
+		return;
+	}
+
 	while(1) {
 		ret = aht20_read(&temperature, &humidity);
 		if(ret) {
@@ -60,6 +67,13 @@ void main(void)
 			return;
 		}
 		LOG_INF("Temperature: %d.%dC", (int) temperature, (int) (temperature * 100) % 100);
+
+		ret = humidity_read(&humidity);
+		if(ret) {
+			LOG_ERR("Humidity read failed (%d)", ret);
+			return;
+		}
+		LOG_INF("Humidity: %d.%d%%", (int) humidity, (int) (humidity * 100) % 100);
 
 		k_sleep(K_MSEC(1000));
 	}
