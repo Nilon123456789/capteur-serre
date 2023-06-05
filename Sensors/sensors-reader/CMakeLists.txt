@@ -20,10 +20,12 @@ SET(UTILS_C
 SET(DRIVERS_H
     src/drivers/aht20.h
     src/drivers/pt19.h
+    src/drivers/ntcThermistor.h
     )
 SET(DRIVERS_C
     src/drivers/aht20.c
     src/drivers/pt19.c
+    src/drivers/ntcThermistor.c
     )
 
 

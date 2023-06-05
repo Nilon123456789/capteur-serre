@@ -11,6 +11,7 @@
 #include <zephyr/logging/log.h>
 #include "drivers/aht20.h"
 #include "drivers/pt19.h"
+#include "drivers/ntcThermistor.h"
 
 LOG_MODULE_REGISTER(MAIN, CONFIG_MAIN_LOG_LEVEL);
 
@@ -32,6 +33,12 @@ void main(void)
 		return;
 	}
 
+	ret = ntc_init();
+	if(ret) {
+		LOG_ERR("NTC init failed (%d)", ret);
+		return;
+	}
+
 	while(1) {
 		ret = aht20_read(&temperature, &humidity);
 		if(ret) {
@@ -46,6 +53,13 @@ void main(void)
 			return;
 		}
 		LOG_INF("Luminosity: %d.%d%%", (int) luminosity, (int) (luminosity * 100) % 100);
+
+		ret = ntc_read(&temperature);
+		if(ret) {
+			LOG_ERR("NTC read failed (%d)", ret);
+			return;
+		}
+		LOG_INF("Temperature: %d.%dC", (int) temperature, (int) (temperature * 100) % 100);
 
 		k_sleep(K_MSEC(1000));
 	}
