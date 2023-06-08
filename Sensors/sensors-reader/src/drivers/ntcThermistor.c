@@ -13,6 +13,8 @@ LOG_MODULE_REGISTER(NTC, CONFIG_NTC_LOG_LEVEL); /* Register the module for log *
 
 static const struct device *ntc_adc = DEVICE_DT_GET(ADC_NODE); /* Get the ADC device */
 
+static const struct gpio_dt_spec ntc_power_spec = GPIO_DT_SPEC_GET(NTC_POWER_NODE, gpios); /* NTC power spec */
+
 static int16_t sample_buffer[BUFFER_SIZE] = {0}; /* Buffer for the samples */
 
 static struct adc_channel_cfg channel_cfg = { /* Configuration of the ADC channel */
@@ -52,6 +54,22 @@ int ntc_init(void)
     if(!ntc_adc) {
         LOG_ERR("device not found");
         return 1;
+    }
+
+    if(!device_is_ready(ntc_adc)) {
+        LOG_ERR("device not ready");
+        return 1;
+    }
+
+    if(!device_is_ready(ntc_power_spec.port)) {
+        LOG_ERR("device not ready");
+        return 1;
+    }
+
+    ret = gpio_pin_configure_dt(&ntc_power_spec, GPIO_OUTPUT);
+    if(ret) {
+        LOG_ERR("pin configure failed (%d)", ret);
+        return 2;
     }
 
     ret = adc_channel_setup(ntc_adc, &channel_cfg);
@@ -96,9 +114,21 @@ int ntc_read(float *temperature)
         return 1;
     }
 
+    ret = gpio_pin_set_dt(&ntc_power_spec, 1);
+    if(ret) {
+        LOG_ERR("pin set failed (%d)", ret);
+        return 2;
+    }
+
     ret = adc_read(ntc_adc, &sequence);
     if(ret) {
         LOG_WRN("read failed (%d)", ret);
+        return 2;
+    }
+
+    ret = gpio_pin_set_dt(&ntc_power_spec, 0);
+    if(ret) {
+        LOG_ERR("pin set failed (%d)", ret);
         return 2;
     }
 

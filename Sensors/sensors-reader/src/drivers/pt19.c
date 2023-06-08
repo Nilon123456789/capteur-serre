@@ -13,6 +13,8 @@ LOG_MODULE_REGISTER(PT19, CONFIG_PT19_LOG_LEVEL); /* Register the module for log
 
 static const struct device *pt19_adc = DEVICE_DT_GET(ADC_NODE); /* Get the ADC device */
 
+static const struct gpio_dt_spec pt19_power_spec = GPIO_DT_SPEC_GET(PT19_POWER_NODE, gpios); /* PT19 power spec */
+
 static int16_t sample_buffer[BUFFER_SIZE] = {0}; /* Buffer for the samples */
 
 static struct adc_channel_cfg channel_cfg = { /* Configuration of the ADC channel */
@@ -54,6 +56,22 @@ int pt19_init(void)
         return 1;
     }
 
+    if(!device_is_ready(pt19_adc)) {
+        LOG_ERR("device not ready");
+        return 1;
+    }
+
+    if(!device_is_ready(pt19_power_spec.port)) {
+        LOG_ERR("device not ready");
+        return 1;
+    }
+
+    ret = gpio_pin_configure_dt(&pt19_power_spec, GPIO_OUTPUT);
+    if(ret) {
+        LOG_ERR("configure failed (%d)", ret);
+        return 2;
+    }
+
     ret = adc_channel_setup(pt19_adc, &channel_cfg);
     if(ret) {
         LOG_ERR("setup failed (%d)", ret);
@@ -81,9 +99,21 @@ int pt19_read(float *intensity)
         return 1;
     }
 
+    ret = gpio_pin_set_dt(&pt19_power_spec, 1);
+    if(ret) {
+        LOG_ERR("set failed (%d)", ret);
+        return 2;
+    }
+
     ret = adc_read(pt19_adc, &sequence);
     if(ret) {
         LOG_WRN("read failed (%d)", ret);
+        return 2;
+    }
+
+    ret = gpio_pin_set_dt(&pt19_power_spec, 0);
+    if(ret) {
+        LOG_ERR("set failed (%d)", ret);
         return 2;
     }
 

@@ -13,6 +13,8 @@ LOG_MODULE_REGISTER(AHT20, CONFIG_AHT20_LOG_LEVEL); /* Register the module for l
 
 static const struct device *i2c_dev; /* I2C device */
 
+static const struct gpio_dt_spec aht20_power_spec = GPIO_DT_SPEC_GET(AHT20_POWER_NODE, gpios); /* AHT20 power spec */
+
 static bool isInitialized = false; /* Is the sensor initialized? */
 
 static uint8_t cmdBuff[4]; /* Command buffer */
@@ -38,6 +40,28 @@ int aht20_init()
         LOG_ERR("I2C device not ready");
         return 1;
     }
+
+    if (!device_is_ready(aht20_power_spec.port))
+    {
+        LOG_ERR("Power pin not ready");
+        return 1;
+    }
+
+    ret = gpio_pin_configure_dt(&aht20_power_spec, GPIO_OUTPUT_ACTIVE);
+    if (ret)
+    {
+        LOG_ERR("Failed to configure power pin (%d)", ret);
+        return 1;
+    }
+
+    ret = gpio_pin_set_dt(&aht20_power_spec, 1);
+    if (ret)
+    {
+        LOG_ERR("Failed to set power pin (%d)", ret);
+        return 1;
+    }
+    
+    k_sleep(K_MSEC(40)); /* Wait for the sensor to power up */
 
     cmdBuff[0] = AHT20_CMD_RESET;
     ret = i2c_write(i2c_dev, cmdBuff, 1, AHT20_I2C_ADDR);
@@ -71,6 +95,14 @@ int aht20_init()
 		k_sleep(K_MSEC(10));
 	}
 
+    // disable disabeling the power pin
+    // ret = gpio_pin_set_dt(&aht20_power_spec, 0);
+    // if (ret)
+    // {
+    //     LOG_ERR("Failed to set power pin (%d)", ret);
+    //     return 1;
+    // }
+
     LOG_INF("Init done");
 
     isInitialized = true;
@@ -95,6 +127,13 @@ int aht20_read(float *temperature, float *humidity)
     if (!isInitialized)
     {
         LOG_ERR("Not initialized");
+        return 1;
+    }
+
+    ret = gpio_pin_set_dt(&aht20_power_spec, 1);
+    if (ret)
+    {
+        LOG_ERR("Failed to set power pin (%d)", ret);
         return 1;
     }
 
@@ -138,6 +177,14 @@ int aht20_read(float *temperature, float *humidity)
         LOG_WRN("CRC check failed (%02x != %02x)", crc, dataBuff[6]);
         return 4;
     }
+
+    // Disable disabling power pin
+    // ret = gpio_pin_set_dt(&aht20_power_spec, 0);
+    // if (ret)
+    // {
+    //     LOG_ERR("Failed to set power pin (%d)", ret);
+    //     return 1;
+    // }
 
     LOG_DBG("Raw data: %02x %02x %02x %02x %02x %02x %02x", 
         dataBuff[0], dataBuff[1], dataBuff[2], dataBuff[3], dataBuff[4], dataBuff[5], dataBuff[6]);

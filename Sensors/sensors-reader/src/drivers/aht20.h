@@ -12,6 +12,7 @@
 
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/i2c.h>
+#include <zephyr/drivers/gpio.h>
 #include <zephyr/logging/log.h> 
 #include <zephyr/sys/crc.h>
 
@@ -25,6 +26,7 @@
 #define AHT20_CMD_INITIALIZE	     0xBE /* Initialize command */
 
 #define I2C1_NODE DT_NODELABEL(i2c1) /* I2C1 node */
+#define AHT20_POWER_NODE DT_ALIAS(aht20) /* AHT20 power node */
 
 int aht20_init(void);
 

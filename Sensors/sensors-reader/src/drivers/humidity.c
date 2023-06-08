@@ -13,6 +13,8 @@ LOG_MODULE_REGISTER(HUMIDITY, CONFIG_HUMIDITY_LOG_LEVEL); /* Register the module
 
 static const struct device *humidity_adc = DEVICE_DT_GET(ADC_NODE); /* Get the ADC device */
 
+static const struct gpio_dt_spec humidity_power_spec = GPIO_DT_SPEC_GET(HUM_POWER_NODE, gpios); /* Humidity power spec */
+
 static int16_t sample_buffer[BUFFER_SIZE] = {0}; /* Buffer for the samples */
 
 static struct adc_channel_cfg channel_cfg = { /* Configuration of the ADC channel */
@@ -54,6 +56,22 @@ int humidity_init(void)
         return 1;
     }
 
+    if(!device_is_ready(humidity_adc)) {
+        LOG_ERR("device not ready");
+        return 1;
+    }
+
+    if(!device_is_ready(humidity_power_spec.port)) {
+        LOG_ERR("power pin not ready");
+        return 1;
+    }
+
+    ret = gpio_pin_configure_dt(&humidity_power_spec, GPIO_OUTPUT_ACTIVE);
+    if(ret) {
+        LOG_ERR("Failed to configure power pin (%d)", ret);
+        return 1;
+    }
+
     ret = adc_channel_setup(humidity_adc, &channel_cfg);
     if(ret) {
         LOG_ERR("setup failed (%d)", ret);
@@ -81,10 +99,22 @@ int humidity_read(float *humidity)
         return 1;
     }
 
+    ret = gpio_pin_set_dt(&humidity_power_spec, 1);
+    if(ret) {
+        LOG_ERR("Failed to set power pin (%d)", ret);
+        return 1;
+    }
+
     ret = adc_read(humidity_adc, &sequence);
     if(ret) {
         LOG_WRN("read failed (%d)", ret);
         return 2;
+    }
+
+    ret = gpio_pin_set_dt(&humidity_power_spec, 0);
+    if(ret) {
+        LOG_ERR("Failed to set power pin (%d)", ret);
+        return 1;
     }
 
     *humidity = mapRange(sample_buffer[0], DRY_VAL, WET_VAL, 0, 100);

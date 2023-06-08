@@ -11,10 +11,13 @@
 
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/adc.h>
+#include <zephyr/drivers/gpio.h>
 #include <zephyr/logging/log.h>
 #include <math.h>
 
 #define ADC_NODE    DT_NODELABEL(adc) // Get ADC node
+
+#define NTC_POWER_NODE DT_ALIAS(ground_temp) // Get thermistor power node
 
 #define ADC_RESOLUTION          10 // ADC resolution
 #define NTC_CHANNEL_ID              1 // ADC channel ID
