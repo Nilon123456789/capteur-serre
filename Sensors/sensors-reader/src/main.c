@@ -13,6 +13,8 @@
 #include "drivers/pt19.h"
 #include "drivers/ntcThermistor.h"
 #include "drivers/humidity.h"
+#include "drivers/batterie.h"
+#include "utils.h"
 
 LOG_MODULE_REGISTER(MAIN, CONFIG_MAIN_LOG_LEVEL);
 
@@ -20,60 +22,33 @@ int ret;
 
 void main(void)
 {
-	float temperature, humidity, luminosity;
+	float temperature, humidity, luminosity, charge;
 
-	ret = aht20_init();
-	if(ret) {
-		LOG_ERR("AHT20 init failed (%d)", ret);
-		return;
-	}
+	RET_IF_ERR(aht20_init(), "AHT20 init failed");
 
-	ret = pt19_init();
-	if(ret) {
-		LOG_ERR("PT19 init failed (%d)", ret);
-		return;
-	}
+	RET_IF_ERR(pt19_init(), "PT19 init failed");
 
-	ret = ntc_init();
-	if(ret) {
-		LOG_ERR("NTC init failed (%d)", ret);
-		return;
-	}
+	RET_IF_ERR(ntc_init(), "NTC init failed");
 
-	ret = humidity_init();
-	if(ret) {
-		LOG_ERR("Humidity init failed (%d)", ret);
-		return;
-	}
+	RET_IF_ERR(humidity_init(), "Humidity init failed");
+
+	RET_IF_ERR(batterie_init(), "Batterie init failed");
 
 	while(1) {
-		ret = aht20_read(&temperature, &humidity);
-		if(ret) {
-			LOG_ERR("AHT20 read failed (%d)", ret);
-			return;
-		}
+		RET_IF_ERR(aht20_read(&temperature, &humidity), "AHT20 read failed");
 		LOG_INF("Temperature: %d.%dC, Humidity: %d.%d%%", (int) temperature, (int) (temperature * 100) % 100, (int) humidity, (int) (humidity * 100) % 100);
 
-		ret = pt19_read(&luminosity);
-		if(ret) {
-			LOG_ERR("PT19 read failed (%d)", ret);
-			return;
-		}
+		RET_IF_ERR(pt19_read(&luminosity), "PT19 read failed");
 		LOG_INF("Luminosity: %d.%d%%", (int) luminosity, (int) (luminosity * 100) % 100);
 
-		ret = ntc_read(&temperature);
-		if(ret) {
-			LOG_ERR("NTC read failed (%d)", ret);
-			return;
-		}
+		RET_IF_ERR(ntc_read(&temperature), "NTC read failed");
 		LOG_INF("Temperature: %d.%dC", (int) temperature, (int) (temperature * 100) % 100);
 
-		ret = humidity_read(&humidity);
-		if(ret) {
-			LOG_ERR("Humidity read failed (%d)", ret);
-			return;
-		}
+		RET_IF_ERR(humidity_read(&humidity), "Humidity read failed");
 		LOG_INF("Humidity: %d.%d%%", (int) humidity, (int) (humidity * 100) % 100);
+
+		RET_IF_ERR(batterie_read(&charge), "Batterie read failed");
+		LOG_INF("Batterie: %d.%d%%", (int) charge, (int) (charge * 100) % 100);
 
 		k_sleep(K_MSEC(1000));
 	}

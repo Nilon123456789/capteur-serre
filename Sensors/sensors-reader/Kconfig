@@ -376,3 +376,65 @@ config HUMIDITY_LOG_LEVEL
 endmenu
 
 ################################################################################
+# BATTERIE module
+
+menu "BATTERIE module"
+
+########################################
+# BATTERIE Logging
+
+choice BATTERIE_LOG_LEVEL_CHOICE
+    prompt "Log level"
+    depends on LOG
+    default BATTERIE_LOG_LEVEL_INF
+    help
+        Message severity threshold for logging. This option controls which
+        severities of messages are displayed and which ones are suppressed.
+        Messages can have 4 severity levels - debug, info, warning, and error -
+        in that order of increasing severity. Messages below the configured
+        severity threshold are suppressed.
+
+config BATTERIE_LOG_LEVEL_OFF
+    bool "Off"
+    help
+        Do not log messages. No messages are displayed. Messages of all severity
+        levels are suppressed.
+
+config BATTERIE_LOG_LEVEL_ERR
+    bool "Error"
+    help
+        Log up to error messages. Error messages are displayed. Warning, info,
+        and debug messages are suppressed.
+
+config BATTERIE_LOG_LEVEL_WRN
+    bool "Warning"
+    help
+        Log up to warning messages. Error and warning messages are displayed.
+        Info and debug messages are suppressed.
+
+config BATTERIE_LOG_LEVEL_INF
+    bool "Info"
+    help
+        Log up to info messages. Error, warning, and info messages are
+        displayed. Debug messages are suppressed.
+
+config BATTERIE_LOG_LEVEL_DBG
+    bool "Debug"
+    help
+        Log up to debug messages. Messages of all severity levels are displayed.
+        No messages are suppressed.
+
+endchoice
+
+config BATTERIE_LOG_LEVEL
+    int
+    depends on LOG
+    default 0 if BATTERIE_LOG_LEVEL_OFF
+    default 1 if BATTERIE_LOG_LEVEL_ERR
+    default 2 if BATTERIE_LOG_LEVEL_WRN
+    default 3 if BATTERIE_LOG_LEVEL_INF
+    default 4 if BATTERIE_LOG_LEVEL_DBG
+
+endmenu
+
+################################################################################

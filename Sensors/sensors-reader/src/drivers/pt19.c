@@ -11,72 +11,38 @@
 
 LOG_MODULE_REGISTER(PT19, CONFIG_PT19_LOG_LEVEL); /* Register the module for log */
 
-static const struct device *pt19_adc = DEVICE_DT_GET(ADC_NODE); /* Get the ADC device */
+static const struct adc_dt_spec pt19_adc_spec = ADC_DT_SPEC_GET(DT_NODELABEL(pt19));
+static const struct gpio_dt_spec pt19_enable_spec = GPIO_DT_SPEC_GET(DT_NODELABEL(pt19), power_gpios);
 
-static const struct gpio_dt_spec pt19_power_spec = GPIO_DT_SPEC_GET(PT19_POWER_NODE, gpios); /* PT19 power spec */
-
-static int16_t sample_buffer[BUFFER_SIZE] = {0}; /* Buffer for the samples */
-
-static struct adc_channel_cfg channel_cfg = { /* Configuration of the ADC channel */
-    .gain             = PT_ADC_GAIN,
-	.reference        = ADC_REFERENCE,
-	.acquisition_time = ADC_ACQUISITION_TIME,
-	.channel_id       = PT_CHANNEL_ID,
-	.differential	  = 0,
-	.input_positive   = PT_ADC_PORT,
-};
-
-static const struct adc_sequence sequence = {
-    .options	    = NULL,
-    .channels	    = BIT(PT_CHANNEL_ID),
-    .buffer		    = sample_buffer,
+static int16_t sample_buffer;
+static struct adc_sequence sequence = {
+    .buffer		    = &sample_buffer,
     .buffer_size	= sizeof(sample_buffer),
-    .resolution	    = ADC_RESOLUTION,
-    .oversampling	= 0,
-    .calibrate	    = false,
 };
-
-static uint8_t ret;
 
 static bool isInisialized = false;
 
 /**
  * @brief Initalise the PT19 sensor
  * 
- * @return int 0 if success, 1 if device not found, 
- * 2 if setup failed
+ * @return int 0 if success, error code otherwise
 */
 int pt19_init(void)
 {
+    if(isInisialized) {
+        LOG_WRN("device already initialized");
+        return 0;
+    }
 
     LOG_INF("init");
 
-    if(!pt19_adc) {
-        LOG_ERR("device not found");
-        return 1;
-    }
+    RET_IF_ERR(!device_is_ready(pt19_adc_spec.dev), "ADC device not ready");
+    RET_IF_ERR(adc_channel_setup_dt(&pt19_adc_spec), "ADC channel setup failed");
+    RET_IF_ERR(!device_is_ready(pt19_enable_spec.port), "GPIO device not ready");
+    RET_IF_ERR(gpio_pin_configure_dt(&pt19_enable_spec, GPIO_OUTPUT), "GPIO pin configuration failed");
 
-    if(!device_is_ready(pt19_adc)) {
-        LOG_ERR("device not ready");
-        return 1;
-    }
-
-    if(!device_is_ready(pt19_power_spec.port)) {
-        LOG_ERR("device not ready");
-        return 1;
-    }
-
-    ret = gpio_pin_configure_dt(&pt19_power_spec, GPIO_OUTPUT);
-    if(ret) {
-        LOG_ERR("configure failed (%d)", ret);
-        return 2;
-    }
-
-    ret = adc_channel_setup(pt19_adc, &channel_cfg);
-    if(ret) {
-        LOG_ERR("setup failed (%d)", ret);
-        return 2;
-    }
+    /* Disable the sensor */
+    RET_IF_ERR(gpio_pin_set_dt(&pt19_enable_spec, 0), "GPIO pin set failed");
 
     isInisialized = true;
 
@@ -89,8 +55,7 @@ int pt19_init(void)
  * @brief Read the intensity of the light (0-100)
  * 
  * @param intensity Pointer to the variable where the intensity will be stored
- * @return int 0 if success, 1 if device not initialized, 
- * 2 if read failed
+ * @return int 0 if success, error code otherwise
 */
 int pt19_read(float *intensity)
 {
@@ -99,27 +64,19 @@ int pt19_read(float *intensity)
         return 1;
     }
 
-    ret = gpio_pin_set_dt(&pt19_power_spec, 1);
-    if(ret) {
-        LOG_ERR("set failed (%d)", ret);
-        return 2;
-    }
+    LOG_INF("read");
 
-    ret = adc_read(pt19_adc, &sequence);
-    if(ret) {
-        LOG_WRN("read failed (%d)", ret);
-        return 2;
-    }
+    RET_IF_ERR(gpio_pin_set_dt(&pt19_enable_spec, 1), "GPIO pin set failed");
+    k_sleep(K_MSEC(10));
 
-    ret = gpio_pin_set_dt(&pt19_power_spec, 0);
-    if(ret) {
-        LOG_ERR("set failed (%d)", ret);
-        return 2;
-    }
+    RET_IF_ERR(adc_sequence_init_dt(&pt19_adc_spec, &sequence), "ADC sequence init failed");
+    RET_IF_ERR(adc_read(pt19_adc_spec.dev, &sequence), "ADC read failed");
 
-    *intensity = mapRange(sample_buffer[0], 0, 1023, 0, 100);
+    RET_IF_ERR(gpio_pin_set_dt(&pt19_enable_spec, 0), "GPIO pin set failed");
 
-    LOG_DBG("Intensity raw: %d \t Intensity: %d.%d%%", sample_buffer[0], (int)*intensity, (int)(*intensity * 100) % 100);
+    *intensity = mapRange(sample_buffer, 0, 1023, 0, 100);
+
+    LOG_DBG("Intensity raw: %d \t Intensity: %d.%d%%", sample_buffer, (int)*intensity, (int)(*intensity * 100) % 100);
 
     LOG_INF("read done");
 

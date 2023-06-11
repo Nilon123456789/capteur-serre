@@ -15,8 +15,7 @@
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/logging/log.h> 
 #include <zephyr/sys/crc.h>
-
-#define AHT20_I2C_ADDR	0x38 /* I2C address */
+#include "../utils.h"
 
 #define AHT20_CMD_RESET		     	 0xBA /* Reset command */
 #define AHT20_CMD_TRIGGER_MEASURE    0xAC /* Trigger measure command */
@@ -24,9 +23,6 @@
 #define AHT20_TRIGGER_MEASURE_BYTE_1 0x00 /* Trigger measure command byte 1 */
 #define AHT20_CMD_GET_STATUS	     0x71 /* Get status command */
 #define AHT20_CMD_INITIALIZE	     0xBE /* Initialize command */
-
-#define I2C1_NODE DT_NODELABEL(i2c1) /* I2C1 node */
-#define AHT20_POWER_NODE DT_ALIAS(aht20) /* AHT20 power node */
 
 int aht20_init(void);
 

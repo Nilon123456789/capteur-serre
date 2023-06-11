@@ -11,72 +11,41 @@
 
 LOG_MODULE_REGISTER(HUMIDITY, CONFIG_HUMIDITY_LOG_LEVEL); /* Register the module for log */
 
-static const struct device *humidity_adc = DEVICE_DT_GET(ADC_NODE); /* Get the ADC device */
+static const struct adc_dt_spec hum_adc_spec = ADC_DT_SPEC_GET(DT_NODELABEL(ground_humidity));
+static const struct gpio_dt_spec hum_enable_spec = GPIO_DT_SPEC_GET(DT_NODELABEL(ground_humidity), power_gpios);
 
-static const struct gpio_dt_spec humidity_power_spec = GPIO_DT_SPEC_GET(HUM_POWER_NODE, gpios); /* Humidity power spec */
+static const int dry_value[3] = DT_PROP(DT_NODELABEL(ground_humidity), dry);
+static const int wet_value[3] = DT_PROP(DT_NODELABEL(ground_humidity), wet);
 
-static int16_t sample_buffer[BUFFER_SIZE] = {0}; /* Buffer for the samples */
-
-static struct adc_channel_cfg channel_cfg = { /* Configuration of the ADC channel */
-    .gain             = HUM_ADC_GAIN,
-	.reference        = ADC_REFERENCE,
-	.acquisition_time = ADC_ACQUISITION_TIME,
-	.channel_id       = HUM_CHANNEL_ID,
-	.differential	  = 0,
-	.input_positive   = HUM_ADC_PORT,
-};
-
-static const struct adc_sequence sequence = {
-    .options	    = NULL,
-    .channels	    = BIT(HUM_CHANNEL_ID),
-    .buffer		    = sample_buffer,
+static int16_t sample_buffer;
+static struct adc_sequence sequence = {
+    .buffer		    = &sample_buffer,
     .buffer_size	= sizeof(sample_buffer),
-    .resolution	    = ADC_RESOLUTION,
-    .oversampling	= 0,
-    .calibrate	    = false,
 };
-
-static uint8_t ret;
 
 static bool isInisialized = false;
 
 /**
  * @brief Initalise the capacitive humidity sensor
  * 
- * @return int 0 if success, 1 if device not found, 
- * 2 if setup failed
+ * @return int 0 if success, error code otherwise
 */
 int humidity_init(void)
 {
+    if(isInisialized) {
+        LOG_WRN("device already initialized");
+        return 0;
+    }
 
     LOG_INF("init");
 
-    if(!humidity_adc) {
-        LOG_ERR("device not found");
-        return 1;
-    }
+    RET_IF_ERR(!device_is_ready(hum_adc_spec.dev), "ADC device not ready");
+    RET_IF_ERR(adc_channel_setup_dt(&hum_adc_spec), "ADC channel setup failed");
+    RET_IF_ERR(!device_is_ready(hum_enable_spec.port), "GPIO device not ready");
+    RET_IF_ERR(gpio_pin_configure_dt(&hum_enable_spec, GPIO_OUTPUT), "GPIO pin configuration failed");
 
-    if(!device_is_ready(humidity_adc)) {
-        LOG_ERR("device not ready");
-        return 1;
-    }
-
-    if(!device_is_ready(humidity_power_spec.port)) {
-        LOG_ERR("power pin not ready");
-        return 1;
-    }
-
-    ret = gpio_pin_configure_dt(&humidity_power_spec, GPIO_OUTPUT_ACTIVE);
-    if(ret) {
-        LOG_ERR("Failed to configure power pin (%d)", ret);
-        return 1;
-    }
-
-    ret = adc_channel_setup(humidity_adc, &channel_cfg);
-    if(ret) {
-        LOG_ERR("setup failed (%d)", ret);
-        return 2;
-    }
+    /* Disable the sensor */
+    RET_IF_ERR(gpio_pin_set_dt(&hum_enable_spec, 0), "GPIO pin set failed");
 
     isInisialized = true;
 
@@ -89,8 +58,7 @@ int humidity_init(void)
  * @brief Read the humidity value (0-100)
  * 
  * @param humidity Pointer to the humidity value
- * @return int 0 if success, 1 if device not initialized, 
- * 2 if read failed
+ * @return int 0 if success, error code otherwise
 */
 int humidity_read(float *humidity)
 {
@@ -99,27 +67,26 @@ int humidity_read(float *humidity)
         return 1;
     }
 
-    ret = gpio_pin_set_dt(&humidity_power_spec, 1);
-    if(ret) {
-        LOG_ERR("Failed to set power pin (%d)", ret);
-        return 1;
-    }
+    LOG_INF("read");
 
-    ret = adc_read(humidity_adc, &sequence);
-    if(ret) {
-        LOG_WRN("read failed (%d)", ret);
-        return 2;
-    }
+    /* Enable the sensor */
+    RET_IF_ERR(gpio_pin_set_dt(&hum_enable_spec, 1), "GPIO pin set failed");
+    k_sleep(K_MSEC(40)); /* Wait for the sensor to be ready */
 
-    ret = gpio_pin_set_dt(&humidity_power_spec, 0);
-    if(ret) {
-        LOG_ERR("Failed to set power pin (%d)", ret);
-        return 1;
-    }
+    /* Read the value */
+    RET_IF_ERR(adc_sequence_init_dt(&hum_adc_spec, &sequence), "ADC sequence init failed");
+    RET_IF_ERR(adc_read(hum_adc_spec.dev, &sequence), "ADC read failed");
 
-    *humidity = mapRange(sample_buffer[0], DRY_VAL, WET_VAL, 0, 100);
+    /* Disable the sensor */
+    RET_IF_ERR(gpio_pin_set_dt(&hum_enable_spec, 0), "GPIO pin set failed");
 
-    LOG_DBG("Humidity raw: %d \t Humidity: %d.%d%%", sample_buffer[0], (int)*humidity, (int)(*humidity * 100) % 100);
+    /* Convert the value to a percentage */
+    float dry = evaluate_polynomial(0, dry_value); // TODO : replace 0 by batterie voltage
+    float wet = evaluate_polynomial(0, wet_value); // TODO : replace 0 by batterie voltage
+
+    *humidity = mapRange(sample_buffer, dry, wet, 0, 100);
+
+    LOG_DBG("Humidity raw: %d \t Humidity: %d.%d%%", sample_buffer, (int)*humidity, (int)(*humidity * 100) % 100);
 
     LOG_INF("read done");
 

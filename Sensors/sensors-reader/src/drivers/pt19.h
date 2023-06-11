@@ -15,18 +15,6 @@
 #include <zephyr/logging/log.h>
 #include "../utils.h"
 
-#define ADC_NODE    DT_NODELABEL(adc) // Get ADC node
-
-#define PT19_POWER_NODE DT_ALIAS(pt19) // Get light sensor power node
-
-#define ADC_RESOLUTION          10 // ADC resolution
-#define PT_CHANNEL_ID              0 // ADC channel ID
-#define PT_ADC_PORT                SAADC_CH_PSELP_PSELP_AnalogInput0 // ADC port
-#define PT_ADC_GAIN                ADC_GAIN_1_4 // ADC gain
-#define ADC_REFERENCE           ADC_REF_INTERNAL // ADC reference
-#define ADC_ACQUISITION_TIME    ADC_ACQ_TIME_DEFAULT // ADC acquisition time
-#define BUFFER_SIZE             1 // ADC buffer size
-
 int pt19_init(void);
 
 int pt19_read(float *intensity);

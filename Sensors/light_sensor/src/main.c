@@ -61,8 +61,8 @@ void main(void)
 			return;
 		}
 
-		printk("Raw : %d", m_sample_buffer[0]);
-		printk("\t Map : %.\n", mapRange(0, 1023, 0, 100, m_sample_buffer[0]));
+		printk("Raw : %d", m_sample_buffer);
+		printk("\t Map : %.\n", mapRange(0, 1023, 0, 100, m_sample_buffer));
 		k_sleep(K_MSEC(100));
 	}
 }

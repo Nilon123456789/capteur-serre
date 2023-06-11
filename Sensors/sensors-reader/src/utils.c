@@ -19,6 +19,19 @@
  * 
  * @return The mapped value
 */
+
 float mapRange(float value, float inMin, float inMax, float outMin, float outMax) {
-    return (value - inMin) * (outMax - outMin) / (inMax - inMin) + outMin;
+    return fmaxf(fminf((value - inMin) * (outMax - outMin) / (inMax - inMin) + outMin, outMax), outMin);
+}
+
+/**
+ * @brief Evaluate a polynomial
+ * 
+ * @param x Value to evaluate the polynomial at
+ * @param coefficients[3] Array of coefficients of the polynomial
+ * 
+ * @return The value of the polynomial at x
+*/
+float evaluate_polynomial(float x, const int coefficients[3]) {
+    return coefficients[0] + coefficients[1] * x + coefficients[2] * x * x;
 }

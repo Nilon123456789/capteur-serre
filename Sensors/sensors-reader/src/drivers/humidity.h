@@ -15,21 +15,6 @@
 #include <zephyr/logging/log.h>
 #include "../utils.h"
 
-#define ADC_NODE    DT_NODELABEL(adc) // Get ADC node
-
-#define HUM_POWER_NODE DT_ALIAS(ground_hum) // Get humidity power node
-
-#define ADC_RESOLUTION          10 // ADC resolution
-#define HUM_CHANNEL_ID              2 // ADC channel ID
-#define HUM_ADC_PORT                SAADC_CH_PSELP_PSELP_AnalogInput2 // ADC port
-#define HUM_ADC_GAIN                ADC_GAIN_1_2 // ADC gain
-#define ADC_REFERENCE           ADC_REF_INTERNAL // ADC reference
-#define ADC_ACQUISITION_TIME    ADC_ACQ_TIME_DEFAULT // ADC acquisition time
-#define BUFFER_SIZE             1 // ADC buffer size
-
-#define DRY_VAL 250 // Dry value
-#define WET_VAL 825 // Wet value
-
 int humidity_init(void);
 
 int humidity_read(float *humidity);

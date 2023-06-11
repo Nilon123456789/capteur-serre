@@ -11,72 +11,40 @@
 
 LOG_MODULE_REGISTER(NTC, CONFIG_NTC_LOG_LEVEL); /* Register the module for log */
 
-static const struct device *ntc_adc = DEVICE_DT_GET(ADC_NODE); /* Get the ADC device */
+static const struct adc_dt_spec temp_adc_spec = ADC_DT_SPEC_GET(DT_NODELABEL(ground_temperature));
+static const struct gpio_dt_spec temp_enable_spec = GPIO_DT_SPEC_GET(DT_NODELABEL(ground_temperature), power_gpios);
 
-static const struct gpio_dt_spec ntc_power_spec = GPIO_DT_SPEC_GET(NTC_POWER_NODE, gpios); /* NTC power spec */
+static const uint16_t RESISTOR = DT_PROP(DT_NODELABEL(ground_temperature), output_ohms);
 
-static int16_t sample_buffer[BUFFER_SIZE] = {0}; /* Buffer for the samples */
-
-static struct adc_channel_cfg channel_cfg = { /* Configuration of the ADC channel */
-    .gain             = NTC_ADC_GAIN,
-	.reference        = ADC_REFERENCE,
-	.acquisition_time = ADC_ACQUISITION_TIME,
-	.channel_id       = NTC_CHANNEL_ID,
-	.differential	  = 0,
-	.input_positive   = NTC_ADC_PORT,
-};
-
-static const struct adc_sequence sequence = {
-    .options	    = NULL,
-    .channels	    = BIT(NTC_CHANNEL_ID),
-    .buffer		    = sample_buffer,
+static int16_t sample_buffer;
+static struct adc_sequence sequence = {
+    .buffer		    = &sample_buffer,
     .buffer_size	= sizeof(sample_buffer),
-    .resolution	    = ADC_RESOLUTION,
-    .oversampling	= 0,
-    .calibrate	    = false,
 };
-
-static uint8_t ret;
 
 static bool isInisialized = false;
 
 /**
  * @brief Initalise the ntc sensor
  * 
- * @return int 0 if success, 1 if device not found, 
- * 2 if setup failed
+ * @return int 0 if success, error code otherwise
 */
 int ntc_init(void)
 {
+    if(isInisialized) {
+        LOG_WRN("device already initialized");
+        return 0;
+    }
 
     LOG_INF("init");
 
-    if(!ntc_adc) {
-        LOG_ERR("device not found");
-        return 1;
-    }
+    RET_IF_ERR(!device_is_ready(temp_adc_spec.dev), "ADC device not ready");
+    RET_IF_ERR(adc_channel_setup_dt(&temp_adc_spec), "ADC channel setup failed");
+    RET_IF_ERR(!device_is_ready(temp_enable_spec.port), "GPIO device not ready");
+    RET_IF_ERR(gpio_pin_configure_dt(&temp_enable_spec, GPIO_OUTPUT), "GPIO pin configuration failed");
 
-    if(!device_is_ready(ntc_adc)) {
-        LOG_ERR("device not ready");
-        return 1;
-    }
-
-    if(!device_is_ready(ntc_power_spec.port)) {
-        LOG_ERR("device not ready");
-        return 1;
-    }
-
-    ret = gpio_pin_configure_dt(&ntc_power_spec, GPIO_OUTPUT);
-    if(ret) {
-        LOG_ERR("pin configure failed (%d)", ret);
-        return 2;
-    }
-
-    ret = adc_channel_setup(ntc_adc, &channel_cfg);
-    if(ret) {
-        LOG_ERR("setup failed (%d)", ret);
-        return 2;
-    }
+    /* Disable the sensor */
+    RET_IF_ERR(gpio_pin_set_dt(&temp_enable_spec, 0), "GPIO pin set failed");
 
     isInisialized = true;
 
@@ -104,8 +72,7 @@ static void getTempC(int voltage, float *temperature) {
  * @brief Read the current temperature
  * 
  * @param temperature Pointer to the variable where the temperature will be stored
- * @return int 0 if success, 1 if device not initialized, 
- * 2 if read failed
+ * @return int 0 if success, error code otherwise
 */
 int ntc_read(float *temperature)
 {
@@ -114,27 +81,22 @@ int ntc_read(float *temperature)
         return 1;
     }
 
-    ret = gpio_pin_set_dt(&ntc_power_spec, 1);
-    if(ret) {
-        LOG_ERR("pin set failed (%d)", ret);
-        return 2;
-    }
+    LOG_INF("read");
 
-    ret = adc_read(ntc_adc, &sequence);
-    if(ret) {
-        LOG_WRN("read failed (%d)", ret);
-        return 2;
-    }
+    /* Enable the sensor */
+    RET_IF_ERR(gpio_pin_set_dt(&temp_enable_spec, 1), "GPIO pin set failed");
+    k_sleep(K_MSEC(10));
 
-    ret = gpio_pin_set_dt(&ntc_power_spec, 0);
-    if(ret) {
-        LOG_ERR("pin set failed (%d)", ret);
-        return 2;
-    }
+    /* Read the sensor */
+    RET_IF_ERR(adc_sequence_init_dt(&temp_adc_spec, &sequence), "ADC sequence init failed");
+    RET_IF_ERR(adc_read(temp_adc_spec.dev, &sequence), "ADC read failed");
 
-    getTempC(sample_buffer[0], temperature);
+    /* Disable the sensor */
+    RET_IF_ERR(gpio_pin_set_dt(&temp_enable_spec, 0), "GPIO pin set failed");
 
-    LOG_DBG("Temperature raw: %d \t Temperature: %d.%dC", sample_buffer[0], (int)*temperature, (int)(*temperature * 100) % 100);
+    getTempC(sample_buffer, temperature);
+
+    LOG_DBG("Temperature raw: %d \t Temperature: %d.%dC", sample_buffer, (int)*temperature, (int)(*temperature * 100) % 100);
 
     LOG_INF("read done");
 
