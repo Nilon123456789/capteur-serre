@@ -19,17 +19,11 @@ SET(UTILS_C
 # Add drivers source files
 SET(DRIVERS_H
     src/drivers/aht20.h
-    src/drivers/pt19.h
-    src/drivers/ntcThermistor.h
-    src/drivers/humidity.h
-    src/drivers/batterie.h
+    src/drivers/adc.h
     )
 SET(DRIVERS_C
     src/drivers/aht20.c
-    src/drivers/pt19.c
-    src/drivers/ntcThermistor.c
-    src/drivers/humidity.c
-    src/drivers/batterie.c
+    src/drivers/adc.c
     )
 
 
