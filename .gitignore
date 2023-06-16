@@ -4,3 +4,5 @@
 .vscode/
 
 agriculture.code-workspace
+
+BLE/central/venv/
