@@ -8,6 +8,8 @@
 */
 
 #include "ble.h"
+#include <zephyr/bluetooth/hci.h>
+#include <zephyr/bluetooth/conn.h>
 
 LOG_MODULE_REGISTER(BLE_DRIVER, CONFIG_BLE_DRIVER_LOG_LEVEL);
 
@@ -17,10 +19,20 @@ static bool isInisialized = false;
 
 static uint8_t service_data[22] = {0};
 
+static bt_addr_t addr;
+
 static const struct bt_data ad[] = {
-	BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
-	BT_DATA(BT_DATA_SVC_DATA16, service_data, ARRAY_SIZE(service_data)),
-	BT_DATA(BT_DATA_NAME_COMPLETE, DEVICE_NAME, DEVICE_NAME_LEN),
+	BT_DATA(BT_DATA_SVC_DATA16, service_data, sizeof(service_data)),
+};
+
+static struct bt_le_ext_adv *adv;
+
+struct bt_le_adv_param adv_param = {
+		.secondary_max_skip = 0U,
+		.options = (BT_LE_ADV_OPT_EXT_ADV | BT_LE_ADV_OPT_USE_NAME | BT_LE_ADV_OPT_USE_IDENTITY),
+		.interval_min = ((uint16_t)(CONFIG_BLE_MIN_ADV_INTERVAL_MS) / 0.625f),
+		.interval_max = ((uint16_t)(CONFIG_BLE_MAX_ADV_INTERVAL_MS) / 0.625f),
+		.peer = NULL,
 };
 
 /**
@@ -30,12 +42,18 @@ static const struct bt_data ad[] = {
 */
 int ble_init(void) {
 
+    if(isInisialized) {
+        LOG_WRN("BLE already initialized");
+        return 0;
+    }
+
     LOG_INF("Setting custom mac addr to: %s", CONFIG_BLE_USER_DEFINED_MAC_ADDR);
-	bt_addr_le_t addr;
     RET_IF_ERR(bt_addr_le_from_str(&CONFIG_BLE_USER_DEFINED_MAC_ADDR, "random", &addr), "Unable to converte mac addr");
     RET_IF_ERR(bt_id_create(&addr, NULL), "Unable to set mac addr");
 
     RET_IF_ERR(bt_enable(NULL), "Bluetooth init failed");
+
+    RET_IF_ERR(bt_le_ext_adv_create(&adv_param, NULL, &adv), "Advertising failed to create");
 
     /* Setting service UUID */
     service_data[0] = SERVICE_UUID_1;
@@ -107,28 +125,19 @@ int ble_adv() {
         LOG_ERR("BLE not initialized");
         return -1;
     }
-
     LOG_INF("Starting advertising #%d", counter);
 
-    /* Start advertising */
-    RET_IF_ERR(bt_le_adv_start(
-				BT_LE_ADV_PARAM(
-					BT_LE_ADV_OPT_USE_IDENTITY,
-					((uint16_t)(CONFIG_BLE_MIN_ADV_INTERVAL_MS) / 0.625f),
-					((uint16_t)(CONFIG_BLE_MAX_ADV_INTERVAL_MS) / 0.625f),
-					NULL),
-				ad, 
-				ARRAY_SIZE(ad), 
-				NULL, 
-				0
-		), "Advertising failed to start");
+    RET_IF_ERR(bt_le_ext_adv_set_data(adv, ad, ARRAY_SIZE(ad), NULL, 0), "Advertising failed to set data");
+
+    RET_IF_ERR(bt_le_ext_adv_start(adv, BT_LE_EXT_ADV_START_DEFAULT), "Advertising failed to start");
+    
     LOG_INF("Advertising started for %d seconds", CONFIG_BLE_ADV_DURATION_SEC);
 
     /* Wait for advertising to end */
     k_sleep(K_SECONDS(CONFIG_BLE_ADV_DURATION_SEC));
 
     /* Stop advertising */
-    RET_IF_ERR(bt_le_adv_stop(), "Advertising failed to stop");
+    RET_IF_ERR(bt_le_ext_adv_stop(adv), "Advertising failed to stop");
     LOG_INF("Advertising stopped");
 
     /* Increment counter */
