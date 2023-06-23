@@ -108,7 +108,6 @@ static void scan_recv(const struct bt_le_scan_recv_info *info,
 {
 	char le_addr[BT_ADDR_LE_STR_LEN];
 	char name[NAME_LEN];
-	uint16_t buf_len = buf->len;
 	struct net_buf_simple ad;
 	struct service_data svc_data = {
 		.len = 0,
@@ -129,7 +128,7 @@ static void scan_recv(const struct bt_le_scan_recv_info *info,
 	
 	bt_addr_to_str(&info->addr->a, le_addr, sizeof(le_addr)); // Get address
 
-	LOG_INF("Received data from %s (%s)", le_addr, name);
+	LOG_INF("Received data from %s (%s)\n", le_addr, name);
 	send_value(name, le_addr, &svc_data); // Send data to computer
 }
 
@@ -148,7 +147,7 @@ void main(void)
 	struct bt_le_scan_param scan_param = { // Set scan parameters
 		.type       = BT_LE_SCAN_TYPE_PASSIVE,
 		.options    = BT_LE_SCAN_OPT_NONE,
-		.interval   = BT_GAP_SCAN_SLOW_INTERVAL_1,
+		.interval   = 0x0100,
 		.window     = BT_GAP_SCAN_FAST_WINDOW,
 	};
 
