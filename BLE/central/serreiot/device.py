@@ -1,43 +1,41 @@
 from queue import Queue
-import simplepyble
 from abc import ABC
 
 class Device(ABC):
 
-    def __init__(self, peripheral) -> None:
+    def __init__(self, line) -> None:
+        """
+        Create a new device from the data
+        
+        Args:
+            data (str): The data from the scan (format: {name,addr,service_data})
+        """
+        line = line.strip("{}") # Remove the first and last char
+        val = line.split(",") # Split the string into a list
 
-        self.__name = peripheral.identifier()
-        self.__addr = peripheral.address()
-        self.__index = "" 
-        self.__data = None
-        self.__last_id = -1
+        self.__name = val[0]
+        self.__addr = val[1]
+        self.__data = val[2].split("-") # Split the data into a list
         self.__id = -1
-       
-        if len(self.__name) < 2:
-            return None
 
         self.__index = self.__name[-1] #Get last char of the name
         
-        for service in peripheral.services():
-            if service.uuid() == "0000cdab-0000-1000-8000-00805f9b34fb":
-                self.__data = service.data
-        
-        if self.__data is None:
+        # Check if it's the right service
+        if self.__data[0:2] != ['ab', 'cd']:
             return None
+        
+        self.__data = self.__data[2:] # Remove the service id
+        self.__data = [int(d, 16) for d in self.__data] # Convert the data from hex to int
        
-        if self.__data[0] != 0:
+        if self.__data[0] != 0: # Check if the first byte is 0
             return None
 
-        self.__id = self.__data[1]
+        self.__id = self.__data[1] # Set the id
     
     @property
     def index(self) -> str:
         """Get the index of the sensor"""
         return self.__index
-    @property
-    def last_id(self) -> int:
-        '''Get the last id set'''
-        return self.__last_id
 
     @property
     def id(self) -> int:
@@ -55,29 +53,19 @@ class Device(ABC):
         return self.__name
 
     @property
-    def data(self) -> bytes:
+    def data(self) -> int:
         '''Get the data'''
         return self.__data
-
-    @data.setter
-    def data(self, data:bytes):
-        '''Set the new data and update the id'''
-        self.__data = data
-
-        if self.__data[0] != 0:
-            raise Unexpectvalue('first data byte should be 0 and not %d' % self.__data[0])
-        
-        self.__last_id = self.__id
-        self.__id = self.__data[1]
 
     def getDataQueue(self) -> Queue:
         """Get the queue with the data (the id is removed)"""
         if len(self.__data) <= 2:
-            return None
+            return Queue(0)
         
         queue = Queue(0)
-        # Loop for each ellement except the 2 first
-        for d in self.__data[2:]:
+
+        # Loop for each ellement
+        for d in self.__data[2:]: # Remove the id
             queue.put(d)
 
         return queue

@@ -1,88 +1,59 @@
-import simplepyble
 from aliot.aliot_obj import AliotObj
+
 from device import Device
-from queue import Queue
+from reader import Reader
+import time
 
 sensor_iot = AliotObj("serreiot")
 
-def scan(adapter):
-    print("scan:")
-    # Scan for 1 seconds
-    adapter.scan_for(1000)
-
-    devices = []
-    peripherals = adapter.scan_get_results()
-    for peripheral in peripherals:
-        print(f"\t{peripheral.identifier()} [{peripheral.address()}]")
-        device = Device(peripheral)
-        if device.last_id == -1:
-            continue
-
-        devices.append(device)
-        print(f"{peripheral.identifier()} [{peripheral.address()}]")
-
-    return devices
-
-def start():
-    '''Main function'''
-
-    #Selecting the Bluethoot adapter
-    adapters = simplepyble.Adapter.get_adapters()
-
-    if len(adapters) == 0:
-        print("No adapters found")
-
-    adapter = adapters[0] # Selecting by default the 0
-    print(f"Selected adapter: {adapter.identifier()} [{adapter.address()}]")
-    
-    devices = []
+def send_data(device:Device):
     sensors_values = {
         1 : 99.99, # temp
         2 : 99.99, # hum
         3 : 99.99, # lum
         4 : 99.99, # gnd temp
         5 : 99.99, # gnd hum
-        254 : 0.00 # bat
+        254 : 99.99 # bat
     }
 
-    while(True):
-        scaned_devices = scan(adapter)
-        if (scaned_devices is None):
-            print("\tNo devices found")
-            continue
+    data_queue = device.getDataQueue()
+    while not data_queue.empty() and data_queue.qsize() >= 3:
+        val_id = data_queue.get()
+        whole_val = data_queue.get()
+        decimal_val = data_queue.get()
 
-        # Update the list of devices
-        for device in devices:
-            for new_device in scaned_devices:
-                if device == new_device:
-                    device.data = new_device.data
-                    continue
-            device.data = device.data #Set the device data to his data to update the last id
-        
-        for device in devices: 
-            if device.id == device.last_id: #Skip if data is the same
-                continue
+        sensors_values[val_id] = whole_val + (decimal_val / 100)
 
-            string = f"{device.name} Values : "
-            while not values.empty():
-                id = values.get(0)
-                whole = values.get(0)
-                decimal = values.get(0)
-                sensors_values[id] = (whole + (decimal / 100))
-                string += f"{id} : {sensors_values[id]} | "
-            print(string)
-            
-            path = f'/doc/{device.index}'
-            sensor_iot.update_doc({
-                f'{path}/humidity' : sensors_values[2],
-                f'{path}/temperature' : sensors_values[1],
-                f'{path}/luminosite' : sensors_values[3],
-                f'{path}/gnd_temperature' : sensors_values[4],
-                f'{path}/gnd_humidity' : sensors_values[5],
-                f'{path}/batterie' : sensors_values[254],
-                '/doc/id' : cur_id
-                })
-            continue
+    path = f'/doc/{device.index}'
+    sensor_iot.update_doc({
+        f'{path}/humidity' : sensors_values[2],
+        f'{path}/temperature' : sensors_values[1],
+        f'{path}/luminosite' : sensors_values[3],
+        f'{path}/gnd_temperature' : sensors_values[4],
+        f'{path}/gnd_humidity' : sensors_values[5],
+        f'{path}/batterie' : sensors_values[254],
+        f'{path}/id' : device.id
+        })
+    
+def send_logs(msg: str):
+    logs = sensor_iot.get_doc('/doc/logs')
+    
+    data = {
+        "date":  time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
+        "text": msg
+    }
+
+    print("\033[33m" + f"LOG: {data['date']} - {data['text']}" + "\033[0m")
+
+    logs.append(data)
+    sensor_iot.update_doc({ '/doc/logs' : logs })
+
+def start():
+    '''Main function'''
+
+    #Start the serial port reader
+    reader = Reader("COM12", 115200, send_data, send_logs)
+    print("Serial port reader started")
 
 sensor_iot.on_start(callback=start)
 sensor_iot.on_end(callback=lambda: exit())
