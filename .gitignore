@@ -8,3 +8,5 @@ agriculture.code-workspace
 BLE/central/venv/
 
 BLE/central/serreiot/__pycache__/
+
+*.code-workspace

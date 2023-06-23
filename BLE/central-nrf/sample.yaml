@@ -1,0 +1,6 @@
+sample:
+  name: Bluetooth Central
+tests:
+  sample.bluetooth.central:
+    harness: bluetooth
+    tags: bluetooth
