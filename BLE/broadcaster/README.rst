@@ -6,11 +6,8 @@ Bluetooth: Broadcaster
 Overview
 ********
 
-A simple application demonstrating Bluetooth Low Energy Broadcaster role functionality.
-The application will periodically send out advertising packets with
-a manufacturer data element. The content of the data is a single byte
-indicating how many advertising packets the device has sent
-(the number will roll back to 0 after 255).
+This project will get the data from the different sensors (aht21, pt19, ground humidity and temperature) 
+and broadcast it using BLE. The data is broadcasted using BLE extended advertising.
 
 Requirements
 ************
@@ -20,8 +17,4 @@ Requirements
 
 Building and Running
 ********************
-
-This sample can be found under :zephyr_file:`samples/bluetooth/broadcaster` in the
-Zephyr tree.
-
-See :ref:`bluetooth samples section <bluetooth-samples>` for details.
+This project was build with nrf Connect SDK version 2.3.0
