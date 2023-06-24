@@ -55,7 +55,8 @@ class Reader():
                 self.__send_data_cb(device) # Send the data
                 continue
             
-            if device.id != self.__devices[device.addr].id: # Check if the id is different
+            # Check if the device is the same 
+            if device.id > self.__devices[device.addr].id or abs(device.id - self.__devices[device.addr].id) > 5:
                 self.__send_data_cb(device) # Send the data
                 self.__devices[device.addr] = device # Update the device
                 continue
