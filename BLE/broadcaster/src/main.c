@@ -24,6 +24,8 @@ sensors_data_t sensors_data = {
 	.bat = 0
 };
 
+bool first_run = true;
+
 /**
  * @brief Read the sensors data
  */
@@ -67,6 +69,12 @@ void main(void) {
 	while(true) {
 		// Read the sensors data
 		read();
+
+		if(first_run) {
+			// Re read the sensors data to avoid sending wrong data
+			read();
+			first_run = false;
+		}
 
 		// Send the sensors data
 		send();
