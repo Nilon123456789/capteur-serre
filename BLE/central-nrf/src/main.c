@@ -5,6 +5,8 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+#include <stdio.h>
+#include <stdlib.h>
 #include <zephyr/sys/printk.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
@@ -18,21 +20,44 @@ LOG_MODULE_REGISTER(MAIN, CONFIG_MAIN_LOG_LEVEL);
 #define TO_STRING(x) STRING(x)
 #define LOCATION __FILE__ ":" TO_STRING(__LINE__)
 #define RET_IF_ERR(expr, msg)                                   			\
-    {                                                        								 	\
-        int ret = (expr);                                    						 	 \
-        if(ret) {                                            								   \
-            LOG_ERR("Error %d: " msg " in " LOCATION, ret);  	  \
-            return ret;                                       							   \
-        }                                                       								\
-    }
+    {                                                        								 	 \
+        int ret = (expr);                                    						 	   \
+        if(ret) {                                            								   	  \
+            LOG_ERR("Error %d: " msg " in " LOCATION, ret);            \
+    	}																							   \
+	}
 
 #define NAME_LEN 30
 #define DATA_LEN 30
 
-static struct service_data {
+typedef struct service_data {
 		uint8_t len;
 		uint8_t data[DATA_LEN];
 };
+
+/**
+ * @brief Convert an array of bytes to a string of hex values separated by hyphens
+ * 
+ * @param array
+ * @param length
+ * @param result
+ * @param resultSize
+ * @return int 0 if successful, 1 if error
+ */
+int convertArray(uint8_t* array, size_t length, char* result, size_t resultSize)
+{
+    size_t currentIndex = 0;
+    for (size_t i = 0; i < length; i++) {
+        int bytesWritten = snprintf(result + currentIndex, resultSize - currentIndex, "%02x-", array[i]);
+        if (bytesWritten < 0 || bytesWritten >= resultSize - currentIndex) {
+            return 1;
+        }
+        currentIndex += bytesWritten;
+    }
+
+    result[currentIndex - 1] = '\0'; // Replace the last hyphen with a null terminator
+	return 0;
+}
 
 /**
  * @brief Send value to computer
@@ -42,12 +67,12 @@ static struct service_data {
  * @param srv_data
  * @return static void
 */
-static void send_value(char *name, char *addr, struct service_data *srv_data){
-	printk("{%s,%s,", name, addr); // Print name and address
-	for (int i = 0; i < srv_data->len-1; i++){ // Print service data
-		printk("%02x-", srv_data->data[i]);
-	}
-	printk("%02x}\n", srv_data->data[srv_data->len - 1]); // Print last service data byte
+static void send_value(char* name, char* addr, struct service_data* srv_data)
+{
+    char data[DATA_LEN * 3];
+    RET_IF_ERR(convertArray(srv_data->data, srv_data->len, data, sizeof(data)), "Error converting data to string\n"); // Convert data to string
+
+	printk("{%s,%s,%s}\n", name, addr, data); // Print name, address, and converted data
 }
 
 /**
@@ -147,7 +172,7 @@ void main(void)
 	struct bt_le_scan_param scan_param = { // Set scan parameters
 		.type       = BT_LE_SCAN_TYPE_PASSIVE,
 		.options    = BT_LE_SCAN_OPT_NONE,
-		.interval   = 0x0100,
+		.interval   = 0x0200,
 		.window     = BT_GAP_SCAN_FAST_WINDOW,
 	};
 
