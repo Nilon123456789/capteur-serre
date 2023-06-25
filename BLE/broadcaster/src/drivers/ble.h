@@ -31,8 +31,10 @@
 
 int ble_init(void);
 
-int ble_encode_adv_data(float *temp, float *hum, float *lum, float *gnd_hum, float *gnd_temp, float *bat);
+int ble_encode_adv_data(sensors_data_t *sensors_data);
 
-int ble_adv();
+int ble_adv(void);
+
+static void ble_adv_start(int err);
 
 #endif /* BLE_H_ */

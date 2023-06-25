@@ -19,7 +19,7 @@ static bool isInisialized = false;
 
 static uint8_t service_data[22] = {0};
 
-static bt_addr_t addr;
+static bt_addr_le_t addr;
 
 static const struct bt_data ad[] = {
 	BT_DATA(BT_DATA_SVC_DATA16, service_data, sizeof(service_data)),
@@ -50,10 +50,6 @@ int ble_init(void) {
     LOG_INF("Setting custom mac addr to: %s", CONFIG_BLE_USER_DEFINED_MAC_ADDR);
     RET_IF_ERR(bt_addr_le_from_str(&CONFIG_BLE_USER_DEFINED_MAC_ADDR, "random", &addr), "Unable to converte mac addr");
     RET_IF_ERR(bt_id_create(&addr, NULL), "Unable to set mac addr");
-
-    RET_IF_ERR(bt_enable(NULL), "Bluetooth init failed");
-
-    RET_IF_ERR(bt_le_ext_adv_create(&adv_param, NULL, &adv), "Advertising failed to create");
 
     /* Setting service UUID */
     service_data[0] = SERVICE_UUID_1;
@@ -89,28 +85,23 @@ static int ble_encode_pair(uint8_t pos, uint8_t id, float *val) {
 /**
  * @brief Encode the data into the service data
  * 
- * @param temp temperature
- * @param hum humidity
- * @param lumino luminosity
- * @param gnd_tmp ground temperature
- * @param gnd_hum ground humidity
- * @param battery battery level
+ * @param sensors_data data to encode
  * 
  * @return int 0 if no error, error code otherwise
 */
-int ble_encode_adv_data(float *temp, float *hum, float *lumino, float *gnd_hum, float *gnd_tmp, float *battery) {
+int ble_encode_adv_data(sensors_data_t *sensors_data) {
 
     /* Setting counter */
     service_data[2] = 0;
     service_data[3] = counter;
 
     /* Setting data */
-    RET_IF_ERR(ble_encode_pair(4, TEMP_ID, temp), "Unable to encode temperature");
-    RET_IF_ERR(ble_encode_pair(7, HUM_ID, hum), "Unable to encode humidity");
-    RET_IF_ERR(ble_encode_pair(10, LUM_ID, lumino), "Unable to encode luminosity");
-    RET_IF_ERR(ble_encode_pair(13, GND_TEMP_ID, gnd_tmp), "Unable to encode ground temperature");
-    RET_IF_ERR(ble_encode_pair(16, GND_HUM_ID, gnd_hum), "Unable to encode ground humidity");
-    RET_IF_ERR(ble_encode_pair(19, BAT_ID, battery), "Unable to encode battery");
+    RET_IF_ERR(ble_encode_pair(4, TEMP_ID, &sensors_data->temp), "Unable to encode temperature");
+    RET_IF_ERR(ble_encode_pair(7, HUM_ID, &sensors_data->hum), "Unable to encode humidity");
+    RET_IF_ERR(ble_encode_pair(10, LUM_ID, &sensors_data->lum), "Unable to encode luminosity");
+    RET_IF_ERR(ble_encode_pair(13, GND_TEMP_ID, &sensors_data->gnd_temp), "Unable to encode ground temperature");
+    RET_IF_ERR(ble_encode_pair(16, GND_HUM_ID, &sensors_data->gnd_hum), "Unable to encode ground humidity");
+    RET_IF_ERR(ble_encode_pair(19, BAT_ID, &sensors_data->bat), "Unable to encode battery");
 
     return 0;
 }
@@ -120,12 +111,11 @@ int ble_encode_adv_data(float *temp, float *hum, float *lumino, float *gnd_hum, 
  * 
  * @return int 0 if no error, error code otherwise
 */
-int ble_adv() {
-    if (!isInisialized) {
-        LOG_ERR("BLE not initialized");
-        return -1;
-    }
+static void ble_adv_start(int err) {
+
     LOG_INF("Starting advertising #%d", counter);
+
+    RET_IF_ERR(bt_le_ext_adv_create(&adv_param, NULL, &adv), "Advertising failed to create");
 
     RET_IF_ERR(bt_le_ext_adv_set_data(adv, ad, ARRAY_SIZE(ad), NULL, 0), "Advertising failed to set data");
 
@@ -140,8 +130,32 @@ int ble_adv() {
     RET_IF_ERR(bt_le_ext_adv_stop(adv), "Advertising failed to stop");
     LOG_INF("Advertising stopped");
 
+    /* Disable bluetooth */
+    RET_IF_ERR(bt_disable(), "Bluetooth failed to disable");
+    LOG_INF("Bluetooth disabled");
+
     /* Increment counter */
     counter++;
+}
+
+/**
+ * @brief Start the advertising
+ * 
+ * @return int 0 if no error, error code otherwise
+*/
+int ble_adv(void) {
+    if (!isInisialized) {
+        LOG_ERR("BLE not initialized");
+        return -1;
+    }
+
+    /* Enable bluetooth */
+    LOG_INF("Enabling bluetooth");
+    int err = bt_enable(ble_adv_start);
+    if (err) {
+        LOG_ERR("Bluetooth failed to enable (err %d)", err);
+        return err;
+    }
 
     return 0;
 }

@@ -16,14 +16,22 @@
 #define TO_STRING(x) #x
 #define LOCATION __FILE__ ":" TO_STRING(__LINE__)
 
-#define RET_IF_ERR(expr, msg)                                   \
-    {                                                           \
-        int ret = (expr);                                       \
-        if(ret) {                                               \
-            LOG_ERR("Error %d: " msg " in " LOCATION, ret);     \
-            return ret;                                         \
-        }                                                       \
+#define RET_IF_ERR(expr, msg)                                             \
+    {                                                                                         \
+        int ret = (expr);                                                              \
+        if(ret) {                                                                            \
+            LOG_ERR("Error %d: " msg " in " LOCATION, ret);      \
+        }                                                                                       \
     }
+
+typedef struct {
+	float temp;
+	float hum;
+	float lum;
+	float gnd_temp;
+	float gnd_hum;
+	float bat;
+} sensors_data_t;
 
 float mapRange(float value, float inMin, float inMax, float outMin, float outMax);
 

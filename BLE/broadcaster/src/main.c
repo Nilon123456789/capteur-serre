@@ -15,6 +15,45 @@
 
 LOG_MODULE_REGISTER(MAIN, CONFIG_MAIN_LOG_LEVEL);
 
+sensors_data_t sensors_data = {
+	.temp = 0,
+	.hum = 0,
+	.lum = 0,
+	.gnd_temp = 0,
+	.gnd_hum = 0,
+	.bat = 0
+};
+
+/**
+ * @brief Read the sensors data
+ */
+static void read(void) {
+		// Read the temperature and humidity
+		RET_IF_ERR(aht20_read(&sensors_data.temp, &sensors_data.hum), "Unable to read temperature and humidity");
+		// Read the luminosity
+		RET_IF_ERR(luminosity_read(&sensors_data.lum), "Unable to read luminosity");
+		// Read the ground temperature
+		RET_IF_ERR(ground_temperature_read(&sensors_data.gnd_temp), "Unable to read ground temperature");
+		// Read the ground humidity
+		RET_IF_ERR(ground_humidity_read(&sensors_data.gnd_hum), "Unable to read ground humidity");
+		// Read the battery level
+		RET_IF_ERR(battery_voltage_read(&sensors_data.bat), "Unable to read battery level");
+}
+
+/**
+ * @brief Send the sensors data
+ */
+static void send(void) {
+	// Encode the data into the service data
+	RET_IF_ERR(ble_encode_adv_data(&sensors_data), "Unable to encode data");
+
+	// Advertise the data
+	RET_IF_ERR(ble_adv(), "Unable to advertise data");
+}
+
+/**
+ * @brief Main function
+ */
 void main(void) {
 	LOG_INF("Starting application");
 
@@ -25,25 +64,12 @@ void main(void) {
 	// Initialize the BLE driver
 	RET_IF_ERR(ble_init(), "Unable to initialize BLE");
 
-	float temp, hum, lum, gnd_temp, gnd_hum, bat;
-
 	while(true) {
-		// Read the temperature and humidity
-		RET_IF_ERR(aht20_read(&temp, &hum), "Unable to read temperature and humidity");
-		// Read the luminosity
-		RET_IF_ERR(luminosity_read(&lum), "Unable to read luminosity");
-		// Read the ground temperature
-		RET_IF_ERR(ground_temperature_read(&gnd_temp), "Unable to read ground temperature");
-		// Read the ground humidity
-		RET_IF_ERR(ground_humidity_read(&gnd_hum), "Unable to read ground humidity");
-		// Read the battery level
-		RET_IF_ERR(battery_voltage_read(&bat), "Unable to read battery level");
+		// Read the sensors data
+		read();
 
-		// Encode the data into the service data
-		RET_IF_ERR(ble_encode_adv_data(&temp, &hum, &lum, &gnd_hum, &gnd_temp, &bat), "Unable to encode data");
-
-		// Advertise the data
-		RET_IF_ERR(ble_adv(), "Unable to advertise data");
+		// Send the sensors data
+		send();
 
 		// Wait
 		k_sleep(K_SECONDS(CONFIG_SENSOR_SLEEP_DURATION_SEC));
