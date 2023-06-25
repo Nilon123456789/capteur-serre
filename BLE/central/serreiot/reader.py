@@ -106,8 +106,10 @@ class Reader():
 
     def clean_str(self, string) -> str:
         '''Remove all ANSI escape sequences and the prompt'''
-        string = re.sub(r'\x1b\[.*?[@-~]', '', string) # Remove all ANSI escape sequences
-        string = re.sub(r'uart:~\$ ', '', string) # Remove the prompt
+        string = re.sub(r'\x1b\[.*?[@-~]', '', string)  # Remove all ANSI escape sequences
+        string = re.sub(r'uart:~\$ ', '', string)  # Remove the prompt
+        string = string.replace('^[[1;32mua', '')  # Remove the specified string
+
         return string
             
 
